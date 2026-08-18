@@ -1,4 +1,22 @@
-"""High-level educational CDL channel model."""
+"""High-level entry point for wireless-channel generation.
+
+SYSTEM LOCATION
+---------------
+
+Tx antenna array -> [CDL propagation channel generated here] -> Rx antenna array
+
+This module produces the channel impulse response `h(t, tau)`. It does not
+transmit data through that channel, estimate the channel at a receiver, or
+decode user bits. The tiny channel-application example lives in `ofdm.py`.
+
+HIGH-LEVEL FLOW
+---------------
+
+1. Load a standardized CDL-A/B/C/D/E statistical profile.
+2. Sample one or more random small-scale channel states.
+3. Convert every cluster and ray into deterministic MIMO coefficients.
+4. Return coefficients `[batch, rx, tx, path, time]` and path delays.
+"""
 
 from __future__ import annotations
 
@@ -16,10 +34,13 @@ from .rays import CDLRandomState, sample_cdl_random_state
 
 @dataclass
 class CDLChannel:
-    """A standards-profiled, educational CDL A-E MIMO channel.
+    """Standards-profiled educational CDL-A/E MIMO propagation channel.
 
-    This class deliberately separates random-state sampling from deterministic
-    coefficient computation. Reuse a state to compare NumPy and CuPy exactly.
+    `CDLChannel` is a channel generator, not a complete link simulator.
+
+    Random-state sampling is deliberately separated from deterministic
+    coefficient calculation. Reuse one `CDLRandomState` to compare NumPy and
+    CuPy using the same physical rays and phases.
     """
 
     model: ModelLetter
@@ -31,9 +52,13 @@ class CDLChannel:
     precision: Literal["single", "double"] = "single"
 
     def __post_init__(self) -> None:
+        # The profile is the average environment description: delays, powers,
+        # cluster-center angles, spreads, XPR, and optional LOS metadata.
         self.profile: CDLProfile = load_cdl_profile(self.model, self.delay_spread_s)
 
     def sample_state(self, batch_size: int, *, seed: int | None = None) -> CDLRandomState:
+        """Sample per-realization ray coupling and polarization phases."""
+
         return sample_cdl_random_state(self.profile, batch_size, seed=seed)
 
     def generate(
@@ -47,12 +72,33 @@ class CDLChannel:
         random_state: CDLRandomState | None = None,
         backend: Backend | BackendName = "auto",
     ) -> ChannelCoefficients:
-        """Generate channel path coefficients and delays."""
+        """Generate a batch of propagation-channel impulse responses.
 
+        Returns
+        -------
+        ChannelCoefficients
+            `coefficients` has shape `[batch, rx, tx, path, time]` and
+            `delays_s` has shape `[path]`.
+
+        Notes
+        -----
+        This method performs channel generation only. Passing transmitted
+        symbols through the returned channel is a later operation. A real
+        receiver's channel estimation is later still and is not implemented by
+        this method.
+        """
+
+        # Select the numerical array namespace. The same equations are used by
+        # NumPy on CPU and CuPy on CUDA.
         selected = get_backend(backend) if isinstance(backend, str) else backend
+
+        # Either sample a new physical realization or reuse one for exact
+        # reproducibility and CPU/GPU differential tests.
         state = random_state or self.sample_state(batch_size, seed=seed)
         if state.polarization_phases_rad.shape[0] != batch_size:
             raise ValueError("random_state batch dimension does not match batch_size")
+
+        # Convert the profile + sampled rays + arrays + motion into h(t, tau).
         return generate_cdl_coefficients(
             self.profile,
             state,
