@@ -61,9 +61,9 @@ NumPy and CuPy for exact CPU/GPU comparison.
 
 The CDL engine returns
 
-\[
+$$
 h[b,u,s,n,t],
-\]
+$$
 
 where
 
@@ -76,9 +76,9 @@ where
 The corresponding delay of path `n` is `tau[n]`. Together they describe the
 sparse channel impulse response
 
-\[
+$$
 h_{u,s}(t,\tau)=\sum_n h_{u,s,n}(t)\,\delta(\tau-\tau_n).
-\]
+$$
 
 This is **channel generation**. Transmitting data through this channel and
 estimating the channel at a receiver are separate operations.
@@ -101,9 +101,9 @@ them, and scales normalized delays by the requested RMS delay spread.
 For LOS models D/E, the first table entry is the specular component. The code
 extracts it and computes
 
-\[
+$$
 K = \frac{P_{\mathrm{LOS}}}{\sum P_{\mathrm{diffuse}}}.
-\]
+$$
 
 At this stage there is still no antenna-pair coefficient. The profile is an
 average statistical description of the environment.
@@ -113,18 +113,18 @@ average statistical description of the environment.
 One cluster is not one plane wave. CDL expands every diffuse cluster into 20
 rays. TR 38.901 Table 7.5-3 provides the normalized offsets
 
-\[
+$$
 \alpha_m \in
 \{\pm0.0447,\pm0.1413,\ldots,\pm2.1551\}.
-\]
+$$
 
 For example, the azimuth of arrival of ray `m` in cluster `n` is
 
-\[
+$$
 \phi_{n,m,\mathrm{AOA}}
 =
 \phi_{n,\mathrm{AOA}} + c_{\mathrm{ASA}}\alpha_m.
-\]
+$$
 
 The same construction is applied to AoD, ZoA, and ZoD. Their ray orders are
 then independently shuffled. This is random coupling: one ray does not always
@@ -144,14 +144,14 @@ See `constants.py` and `rays.py`.
 
 Zenith `theta` and azimuth `phi` become the Cartesian unit vector
 
-\[
+$$
 \hat{r}(\theta,\phi)=
 \begin{bmatrix}
 \sin\theta\cos\phi\\
 \sin\theta\sin\phi\\
 \cos\theta
 \end{bmatrix}.
-\]
+$$
 
 This vector connects the communication meaning of AoA/AoD to ordinary geometry
 and dot products.
@@ -163,9 +163,9 @@ See `unit_sphere_vector()` in `geometry.py`.
 A plane wave reaches different array elements at different phases. For an
 antenna at position `d`, the spatial term is
 
-\[
+$$
 \exp\left(j\frac{2\pi}{\lambda}\hat{r}^{T}d\right).
-\]
+$$
 
 A ULA/UPA is therefore not only a list of signal values: its physical element
 positions are part of the channel equation. The spatial phase is what turns
@@ -178,7 +178,7 @@ See `AntennaArray` and `spatial_phase()`.
 Each ray has four random initial phases and a cross-polarization power ratio
 `kappa`. They form a 2x2 matrix
 
-\[
+$$
 \mathbf{P}_{n,m}=
 \begin{bmatrix}
 e^{j\Phi_{\theta\theta}} &
@@ -186,14 +186,14 @@ e^{j\Phi_{\theta\theta}} &
 \kappa^{-1/2}e^{j\Phi_{\phi\theta}} &
 e^{j\Phi_{\phi\phi}}
 \end{bmatrix}.
-\]
+$$
 
 The receive field vector, this matrix, and the transmit field vector are
 contracted:
 
-\[
+$$
 \mathbf{F}_{rx}^{T}\mathbf{P}_{n,m}\mathbf{F}_{tx}.
-\]
+$$
 
 Dual-polarized arrays are represented as two antenna ports at the same physical
 location with -45 degree and +45 degree slants. See
@@ -203,15 +203,15 @@ location with -45 degree and +45 degree slants. See
 
 For a moving endpoint with velocity vector `v`, a ray's Doppler frequency is
 
-\[
+$$
 f_{D,n,m}=\frac{\hat{r}_{n,m}^{T}v}{\lambda}.
-\]
+$$
 
 Its time evolution is
 
-\[
+$$
 \exp(j2\pi f_{D,n,m}t).
-\]
+$$
 
 At zero velocity every coefficient remains constant over time. Increasing
 speed increases the rate of phase rotation and fading. Example 05 reuses the
@@ -262,15 +262,15 @@ containing every cluster, ray, antenna pair, and time sample at once. See
 
 For CDL-D/E, diffuse coefficients are scaled by
 
-\[
+$$
 \sqrt{\frac{1}{K+1}},
-\]
+$$
 
 and the deterministic LOS component by
 
-\[
+$$
 \sqrt{\frac{K}{K+1}}.
-\]
+$$
 
 The LOS component is added to the first zero-delay diffuse cluster. See
 `_los_coefficient()` and the final block of `generate_cdl_coefficients()`.
@@ -282,9 +282,9 @@ result is `h(t, tau)`, not transmitted or detected user data.
 
 For a baseband subcarrier frequency `f_k`, the response is
 
-\[
+$$
 H[k,t]=\sum_n h[n,t]e^{-j2\pi f_k\tau_n}.
-\]
+$$
 
 This transform is implemented by `cir_to_frequency_response()`. It changes the
 shape from
@@ -301,9 +301,9 @@ to
 
 The minimal OFDM demo then applies
 
-\[
+$$
 y[k]=H[k]x[k]+n[k]
-\]
+$$
 
 and uses a perfect-CSI pseudo-inverse to recover `x[k]`.
 
