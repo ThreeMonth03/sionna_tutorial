@@ -42,7 +42,7 @@ def main() -> None:
     axes[1].set_xlabel("Tx antenna")
     axes[1].set_ylabel("Rx antenna")
     fig.colorbar(phase, ax=axes[1])
-    fig.suptitle(f"CDL-A 4×8 MIMO matrix ({backend.name})")
+    fig.suptitle(f"CDL-A 4x8 MIMO matrix ({backend.name})")
     fig.tight_layout()
     save_or_show(fig, args.output)
 

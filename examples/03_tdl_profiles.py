@@ -8,8 +8,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from sionna_tutorial.profiles import load_tdl_profile
 from sionna_tutorial.plotting import save_or_show
+from sionna_tutorial.profiles import load_tdl_profile
 
 
 def main() -> None:

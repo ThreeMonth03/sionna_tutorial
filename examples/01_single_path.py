@@ -53,7 +53,7 @@ def main() -> None:
     axes[1].set_ylabel("Unwrapped phase [rad]")
     axes[1].set_xlabel("Time [ms]")
     axes[1].grid(True, alpha=0.3)
-    fig.suptitle("One path = array phase × Doppler phase")
+    fig.suptitle("One path = array phase x Doppler phase")
     fig.tight_layout()
     save_or_show(fig, args.output)
 

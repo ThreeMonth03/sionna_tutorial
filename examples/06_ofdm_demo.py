@@ -40,7 +40,7 @@ def main() -> None:
     equalized = backend.to_numpy(result.equalized_symbols)
     fig = plot_constellations(tx, rx, equalized)
     fig.suptitle(
-        f"CDL-C 2×4 OFDM demo · {backend.name} · SNR={args.snr_db:g} dB · "
+        f"CDL-C 2x4 OFDM demo · {backend.name} · SNR={args.snr_db:g} dB · "
         f"BER={result.bit_error_rate:.3e}",
         y=1.03,
     )

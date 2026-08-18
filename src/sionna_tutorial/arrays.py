@@ -49,7 +49,7 @@ class AntennaArray:
         spacing_wavelengths: float = 0.5,
         polarization: Literal["single", "dual"] = "single",
         pattern: PatternName = "omni",
-    ) -> "AntennaArray":
+    ) -> AntennaArray:
         """Create a uniform linear array along the local y-axis."""
 
         if num_elements <= 0:
@@ -70,7 +70,7 @@ class AntennaArray:
         col_spacing_wavelengths: float = 0.5,
         polarization: Literal["single", "dual"] = "single",
         pattern: PatternName = "omni",
-    ) -> "AntennaArray":
+    ) -> AntennaArray:
         """Create a uniform planar array in the local y-z plane."""
 
         if num_rows <= 0 or num_cols <= 0:
@@ -93,7 +93,7 @@ class AntennaArray:
         physical_positions: np.ndarray,
         polarization: Literal["single", "dual"],
         pattern: PatternName,
-    ) -> "AntennaArray":
+    ) -> AntennaArray:
         if polarization == "single":
             return cls(
                 positions_m=physical_positions,

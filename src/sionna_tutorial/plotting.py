@@ -21,7 +21,7 @@ def save_or_show(fig: Any, output: str | Path | None) -> None:
 
 def plot_power_delay_profile(delays_s: np.ndarray, powers: np.ndarray, title: str) -> Any:
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    markerline, stemlines, baseline = ax.stem(delays_s * 1e9, 10.0 * np.log10(powers))
+    markerline, _stemlines, baseline = ax.stem(delays_s * 1e9, 10.0 * np.log10(powers))
     markerline.set_markersize(4)
     baseline.set_visible(False)
     ax.set_xlabel("Delay [ns]")

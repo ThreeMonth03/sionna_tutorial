@@ -51,7 +51,7 @@ def doppler_phase(
     xp: Any,
     complex_dtype: Any,
 ) -> Any:
-    """Compute ``exp(j 2π ν t)`` for a moving endpoint.
+    """Compute ``exp(j 2*pi*nu*t)`` for a moving endpoint.
 
     Directions have shape ``[batch, rays, 3]`` (or a broadcast-compatible
     variant), velocity has shape ``[batch, 3]``, and output has shape
