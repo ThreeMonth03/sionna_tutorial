@@ -80,9 +80,9 @@ Tx antenna array -> [multipath spatial channel] -> Rx antenna array
 
 Where does the matrix `H` in
 
-\[
+$$
 \mathbf{y}=\mathbf{H}\mathbf{x}+\mathbf{n}
-\]
+$$
 
 come from physically?
 
