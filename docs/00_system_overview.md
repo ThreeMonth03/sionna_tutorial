@@ -10,9 +10,9 @@ complete 5G NR modem. Its main subject is one block in the middle:
 
 The main output is the time-varying multipath MIMO channel
 
-\[
+$$
 h_{u,s}(t,\tau),
-\]
+$$
 
 where `s` identifies a transmit antenna port, `u` identifies a receive antenna
 port, `t` is time, and `tau` is propagation delay.
@@ -123,17 +123,17 @@ This is what Examples 01-05 primarily study.
 
 Take transmitted data `x` and pass it through a known channel `H`:
 
-\[
+$$
 y = Hx + n.
-\]
+$$
 
 For a frequency-selective time-domain channel, the more general expression is
 
-\[
+$$
 y_u(t)
 =
 \sum_s\int h_{u,s}(t,\tau)x_s(t-\tau)\,d\tau+n_u(t).
-\]
+$$
 
 Example 06 performs a simplified frequency-domain channel application on OFDM
 subcarriers.
@@ -143,9 +143,9 @@ subcarriers.
 A real receiver does not know the true `H`. It transmits known pilots, observes
 how they were distorted, and estimates
 
-\[
+$$
 \widehat{H}.
-\]
+$$
 
 Only then can the receiver equalize or detect the unknown data. This repository
 does not yet implement channel estimation. Example 06 directly gives the true
@@ -155,11 +155,11 @@ simulated `H` to the equalizer; this idealization is called **perfect CSI**.
 
 The channel generator returns a sparse channel impulse response:
 
-\[
+$$
 h_{u,s}(t,\tau)
 =
 \sum_n h_{u,s,n}(t)\,\delta(\tau-\tau_n).
-\]
+$$
 
 Interpretation:
 
@@ -172,20 +172,20 @@ Interpretation:
 
 For OFDM, the delayed paths are converted into one matrix per subcarrier:
 
-\[
+$$
 H_{u,s}[k,t]
 =
 \sum_n h_{u,s,n}(t)e^{-j2\pi f_k\tau_n}.
-\]
+$$
 
 Then the familiar narrowband MIMO equation is applied independently on each
 subcarrier:
 
-\[
+$$
 \mathbf{y}[k]
 =
 \mathbf{H}[k]\mathbf{x}[k]+\mathbf{n}[k].
-\]
+$$
 
 ## TDL and CDL in the system map
 
