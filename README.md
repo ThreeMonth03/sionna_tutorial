@@ -1,33 +1,160 @@
 # 3GPP MIMO Channel Tutorial
 
-A readable, test-driven NumPy/CuPy prototype for learning how 3GPP TR 38.901
-TDL/CDL channels turn path delays, angles, antenna geometry, polarization, and
-mobility into a time-varying MIMO channel.
+A readable, test-driven NumPy/CuPy prototype for learning how a wireless
+propagation model turns path delays, angles, antenna geometry, polarization,
+and mobility into a time-varying MIMO channel.
 
-This repository is designed to be **read before it is optimized**. The NumPy
-and CuPy paths execute the same equations and can reuse the exact same sampled
-random state, making CPU/GPU differential testing straightforward.
+## Start here: what part of communication does this repository implement?
 
-> **Status:** educational prototype, not an official 3GPP conformance tool and
-> not affiliated with NVIDIA. The code implements the small-scale channel core;
-> it deliberately does not implement a complete UMi/UMa/RMa scenario engine or
-> a complete 5G NR modem.
+This is **not** a complete communication-system tutorial, 5G protocol stack, or
+5G NR modem. Its core is the block between the transmit and receive antennas:
+
+```text
+Application / TCP-IP / PDCP-RLC-MAC
+                |
+                v
+PHY transmitter
+coding -> QAM -> precoding -> OFDM
+                |
+                v
+RF -> Tx antenna
+                |
+                v
+====================================================
+       WIRELESS PROPAGATION CHANNEL
+
+   TDL / CDL / MIMO / multipath / Doppler
+
+          THIS REPOSITORY'S CORE
+====================================================
+                |
+                v
+Rx antenna -> RF
+                |
+                v
+PHY receiver
+FFT -> channel estimation -> detection -> decoding
+                |
+                v
+PDCP-RLC-MAC / IP / application
+```
+
+The repository mainly **generates** the channel
+
+```text
+h [batch, rx_antenna, tx_antenna, delayed_path, time]
+```
+
+and only provides one deliberately tiny example of applying that channel to
+uncoded QPSK subcarriers.
+
+Read these documents before reading the implementation:
+
+1. **[`docs/00_system_overview.md`](docs/00_system_overview.md)** — complete
+   communication-system map, repository coverage, and the distinction between
+   channel generation, channel application, and channel estimation.
+2. **[`docs/01_learning_path.md`](docs/01_learning_path.md)** — what Examples
+   01-06 teach, their inputs/outputs, and what each one intentionally omits.
+3. **[`docs/02_source_map.md`](docs/02_source_map.md)** — file roles, call graph,
+   and tensor flow through the source tree.
+4. **[`docs/algorithm.md`](docs/algorithm.md)** — formula-to-code explanation
+   inside the channel generator.
 
 ## What is implemented
 
+### Wireless-channel modeling
+
 - TDL-A/B/C/D/E standardized delay and power profiles
 - CDL-A/B/C/D/E standardized delay, power, angle, spread, XPR, and LOS profiles
-- Twenty rays per CDL cluster using TR 38.901 Table 7.5-3 offsets
-- Independent random coupling of AoA, AoD, ZoA, and ZoD inside each cluster
+- twenty rays per CDL cluster using TR 38.901 Table 7.5-3 offsets
+- independent random coupling of AoA, AoD, ZoA, and ZoD inside each cluster
 - ULA and UPA antenna-port geometry, including dual-polarized ports
-- Omni and normalized TR 38.901-style element patterns
-- 2×2 polarization/Jones matrix with cross-polarization ratio
-- Array-position phase, receiver/transmitter mobility, and Doppler evolution
+- omni and normalized TR 38.901-style element patterns
+- 2x2 polarization/Jones matrix with cross-polarization ratio
+- array-position phase, receiver/transmitter mobility, and Doppler evolution
 - LOS/Rician combination for CDL-D/E and TDL-D/E
-- Sparse channel impulse response (CIR) to OFDM frequency response (CFR)
-- A minimal QPSK + MIMO + perfect-CSI zero-forcing OFDM visualization
+- sparse channel impulse response (CIR) to OFDM frequency response (CFR)
 - NumPy CPU and optional CuPy CUDA execution
-- Unit tests for profiles, rays, geometry, channel power, Doppler, and OFDM
+
+### Tiny application around the channel
+
+- uncoded QPSK symbols on frequency-domain OFDM subcarriers
+- `Y[k] = H[k] X[k] + N[k]`
+- perfect-CSI pseudo-inverse / zero-forcing equalization
+- hard decisions and a small BER result
+
+This application exists to make the channel tensor physically meaningful. It
+is not a complete NR receiver.
+
+## Current coverage inside a full link
+
+| Block | Status |
+|---|---|
+| Protocol layers and MAC scheduling | Not implemented |
+| CRC, LDPC, rate matching, HARQ | Not implemented |
+| QAM | Minimal uncoded QPSK in Example 06 |
+| Precoding / beamforming | Not implemented |
+| Full OFDM waveform, IFFT, cyclic prefix | Not implemented |
+| RF transmitter/receiver impairments | Not implemented |
+| TDL/CDL propagation channel | Implemented |
+| Antenna arrays, polarization, Doppler | Implemented |
+| Pilot / DMRS | Not implemented |
+| Channel estimation | Not implemented |
+| MIMO equalization | Minimal perfect-CSI pseudo-inverse |
+| Soft demapping and decoding | Not implemented |
+| BLER Monte Carlo campaign | Not implemented |
+
+## Three operations that are easy to confuse
+
+### Channel generation
+
+Generate the propagation model itself:
+
+```python
+realization = channel.generate(...)
+```
+
+Output:
+
+```text
+coefficients  [batch, rx, tx, path, time]
+delays        [path]
+```
+
+Examples 01-05 focus on this.
+
+### Channel application
+
+Apply a known channel to transmitted symbols:
+
+\[
+\mathbf{y}[k]=\mathbf{H}[k]\mathbf{x}[k]+\mathbf{n}[k].
+\]
+
+Example 06 does this in the frequency domain.
+
+### Channel estimation
+
+A real receiver does not know `H`. It observes pilots and estimates `H_hat`.
+This repository does not yet implement that step. Example 06 directly gives
+the exact simulated `H` to the equalizer; that idealization is called
+**perfect CSI**.
+
+## Learning path: Examples 01-06
+
+The examples are small teaching experiments, not performance stress tests.
+
+| Example | System question | Main output |
+|---|---|---|
+| `01_single_path.py` | How do antenna position and motion rotate one ray's complex phase? | phase versus time |
+| `02_multipath_mimo.py` | How do many rays create the matrix `H`? | MIMO magnitude/phase heatmap |
+| `03_tdl_profiles.py` | What delayed echoes are defined by TDL-A-E? | power-delay profiles |
+| `04_cdl_channel.py` | How are clusters, rays, polarization, and arrays combined? | one CDL CIR realization |
+| `05_mobility_doppler.py` | Why does a faster terminal make `H(t)` vary faster? | fading traces at three speeds |
+| `06_ofdm_demo.py` | How does `H[k]` distort data and how does ideal ZF undo it? | constellations and BER |
+
+Detailed chapter notes are in
+[`docs/01_learning_path.md`](docs/01_learning_path.md).
 
 ## Deliberate simplifications
 
@@ -43,58 +170,51 @@ hiding them behind a false claim of full conformance:
 - no PUSCH, LDPC, DMRS, channel estimator, HARQ, scheduler, or protocol stack
 - no custom CUDA kernels, SOLVCON integration, multi-GPU scheduling, or tuning
 
-Those boundaries are intentional: the repository focuses on the numerical
-meaning of a clustered MIMO channel.
+The repository is an educational small-scale channel prototype, not an official
+3GPP conformance tool and not affiliated with NVIDIA.
 
 ## Installation from a clean Python environment
 
-The tested Python versions are 3.11, 3.12, and 3.13. The repository provides a
-pinned `requirements.txt` containing the project itself, NumPy, Matplotlib,
-CuPy for CUDA 12, and all test/lint tools. No preinstalled Python packages are
-assumed.
+The tested Python versions are 3.11, 3.12, and 3.13. The pinned
+`requirements.txt` contains the project itself, NumPy, Matplotlib, CuPy for
+CUDA 12, and test/lint tools. No preinstalled Python packages are assumed.
 
 ```bash
 git clone https://github.com/ThreeMonth03/sionna_tutorial.git
 cd sionna_tutorial
 
 python3 -m venv .venv
-
-# Linux/macOS
 source .venv/bin/activate
-
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
 
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements.txt
 ```
 
-`requirements.txt` installs `cupy-cuda12x[ctk]`. The `[ctk]` extra installs the
-CUDA 12 runtime/component wheels into the Python environment, so only a
-compatible NVIDIA driver is required; a separately installed system CUDA
-Toolkit is not required. Do not install another `cupy` or `cupy-cuda*` package
-in the same environment.
+Windows PowerShell activation:
 
-Verify that Python sees the GPU:
+```powershell
+python3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+```
+
+`requirements.txt` installs `cupy-cuda12x[ctk]`. The `[ctk]` extra installs
+CUDA 12 runtime/component wheels into the Python environment, so only a
+compatible NVIDIA driver is required. Do not install another `cupy` or
+`cupy-cuda*` distribution in the same environment.
+
+Verify the GPU:
 
 ```bash
 python3 -c "import cupy as cp; print('GPU count:', cp.cuda.runtime.getDeviceCount()); print('GPU:', cp.cuda.runtime.getDeviceProperties(0)['name'])"
 ```
 
-Run the complete test suite, including the CUDA differential test when a GPU is
-available:
-
-```bash
-python3 -m pytest -q
-```
-
-The RTX 2060 (Turing, compute capability 7.5) is sufficient for all examples.
-The examples default to `--backend auto`, so they fall back to NumPy when CuPy
-is unavailable.
+The RTX 2060 is sufficient for the current examples. `--backend auto` uses CuPy
+when a working CUDA installation is available and otherwise falls back to
+NumPy.
 
 ## Run the examples
-
-Read and run them in numerical order:
 
 ```bash
 python3 examples/01_single_path.py
@@ -107,16 +227,7 @@ python3 examples/06_ofdm_demo.py --backend auto --snr-db 20
 
 Figures are written to `artifacts/`.
 
-| Example | Main question |
-|---|---|
-| `01_single_path.py` | Why do antenna position and motion rotate complex phase? |
-| `02_multipath_mimo.py` | How do many rays create one MIMO matrix? |
-| `03_tdl_profiles.py` | What do standardized delay/power profiles look like? |
-| `04_cdl_channel.py` | How do clusters, rays, polarization, and arrays form a CIR? |
-| `05_mobility_doppler.py` | Why does a fast terminal make the channel vary faster? |
-| `06_ofdm_demo.py` | How does the CIR distort QPSK subcarriers, and how does ZF undo it? |
-
-## Minimal API
+## Minimal channel-generation API
 
 ```python
 from sionna_tutorial import AntennaArray, CDLChannel
@@ -140,12 +251,13 @@ result = channel.generate(
 )
 
 print(result.coefficients.shape)
-# [batch, rx_antenna, tx_antenna, path, time]
+# [batch, rx_antenna, tx_antenna, delayed_path, time]
+
 print(result.delays_s.shape)
-# [path]
+# [delayed_path]
 ```
 
-For an exact CPU/GPU comparison, sample once and reuse the state:
+For an exact CPU/GPU comparison, sample the random state once and reuse it:
 
 ```python
 state = channel.sample_state(batch_size=128, seed=42)
@@ -155,20 +267,24 @@ gpu = channel.generate(128, random_state=state, backend="cupy")
 
 ## Tensor shape map
 
-The most important tensors are deliberately documented in code:
-
 ```text
 cluster centers                       [cluster]
 ray angles after offsets/coupling     [batch, cluster, ray]
 polarization phases                   [batch, cluster, ray, 4]
-per-path channel coefficient          [batch, rx, tx, path, time]
+channel impulse response              [batch, rx, tx, path, time]
 OFDM frequency response               [batch, rx, tx, time, subcarrier]
+transmitted QPSK                      [batch, tx, subcarrier]
+received symbols                      [batch, rx, subcarrier]
 ```
 
 The deterministic CDL coefficient engine processes one cluster at a time. It
 avoids materializing the full
-`batch × cluster × ray × rx × tx × time` tensor while keeping the equations
-readable.
+
+```text
+batch x cluster x ray x rx x tx x time
+```
+
+tensor while keeping the equations readable.
 
 ## Validate and benchmark
 
@@ -187,22 +303,34 @@ python3 benchmarks/benchmark_cdl.py \
   --time-steps 8
 ```
 
-The benchmark includes the deterministic coefficient construction and reuses a
+The benchmark includes deterministic coefficient construction and reuses a
 fixed random state. It synchronizes CUDA before stopping the timer.
 
-## Recommended reading path
+Do not infer that communication simulation is cheap because Examples 01-06
+finish quickly. They intentionally use tiny batches and omit coding, channel
+estimation, iterative detection/decoding, low-BLER Monte Carlo stopping, and
+large parameter sweeps. Likewise, do not infer that it is expensive until a
+larger link-level workload is profiled. The current benchmark first answers the
+narrower question: how expensive is CDL channel generation as dimensions grow?
 
-1. [`docs/algorithm.md`](docs/algorithm.md)
-2. `src/sionna_tutorial/geometry.py`
-3. `src/sionna_tutorial/rays.py`
-4. `src/sionna_tutorial/coefficients.py`
-5. `src/sionna_tutorial/cdl.py`
-6. `src/sionna_tutorial/ofdm.py`
-7. the corresponding unit tests
+## Source reading order
+
+1. [`docs/00_system_overview.md`](docs/00_system_overview.md)
+2. [`docs/01_learning_path.md`](docs/01_learning_path.md)
+3. [`docs/02_source_map.md`](docs/02_source_map.md)
+4. [`docs/algorithm.md`](docs/algorithm.md)
+5. `src/sionna_tutorial/profiles.py`
+6. `src/sionna_tutorial/rays.py`
+7. `src/sionna_tutorial/arrays.py`
+8. `src/sionna_tutorial/geometry.py`
+9. `src/sionna_tutorial/coefficients.py`
+10. `src/sionna_tutorial/cdl.py`
+11. `src/sionna_tutorial/ofdm.py`
+12. corresponding tests
 
 ## References and attribution
 
-- 3GPP TR 38.901, channel models for 0.5–100 GHz
+- 3GPP TR 38.901, channel models for 0.5-100 GHz
 - NVIDIA Sionna, an Apache-2.0 open-source communication-system research library
 
 The packaged profile tables are derived from Sionna's Apache-2.0 model files;
