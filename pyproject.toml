@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-cuda = ["cupy-cuda12x>=13.0"]
+cuda = ["cupy-cuda12x[ctk]>=14.1,<15"]
 plot = ["matplotlib>=3.8"]
 dev = [
   "pytest>=8.0",
