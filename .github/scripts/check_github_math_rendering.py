@@ -68,7 +68,7 @@ def render_with_github(markdown: str) -> str:
         headers=headers,
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=30) as response:
         return response.read().decode("utf-8")
 
 
