@@ -78,11 +78,11 @@ Tx antenna array -> [multipath spatial channel] -> Rx antenna array
 
 **Question**
 
-Where does the matrix `H` in
+Where does the matrix $\mathbf{H}$ in
 
-$$
+```math
 \mathbf{y}=\mathbf{H}\mathbf{x}+\mathbf{n}
-$$
+```
 
 come from physically?
 
@@ -112,7 +112,7 @@ as magnitude and phase heatmaps.
 
 Summing all delays into one matrix is only for visualization. A
 frequency-selective receiver normally preserves the delayed paths or converts
-them to one `H[k]` per OFDM subcarrier.
+them to one $\mathbf{H}[k]$ per OFDM subcarrier.
 
 **Checkpoint**
 
@@ -183,7 +183,7 @@ Tx array -> [3GPP clustered MIMO propagation channel] -> Rx array
 
 How are delay, cluster power, 20 rays, four angular dimensions, antenna
 patterns, polarization, array geometry, and random phase combined into
-`h(t, tau)`?
+$h(t,\tau)$?
 
 **Inputs**
 
@@ -294,7 +294,7 @@ to a receiver operation.
 
 **Question**
 
-How does the generated `h(t, tau)` distort data, and how can a receiver undo a
+How does the generated $h(t,\tau)$ distort data, and how can a receiver undo a
 known MIMO channel?
 
 **Inputs**
@@ -320,9 +320,9 @@ known MIMO channel?
 
 **The largest idealization: perfect CSI**
 
-The equalizer receives the exact simulated channel `H[k]`. A real receiver must
-insert pilots such as DMRS, estimate `H_hat[k]`, and equalize using that imperfect
-estimate.
+The equalizer receives the exact simulated channel $\mathbf{H}[k]$. A real
+receiver must insert pilots such as DMRS, estimate
+$\widehat{\mathbf{H}}[k]$, and equalize using that imperfect estimate.
 
 **Other missing parts**
 
