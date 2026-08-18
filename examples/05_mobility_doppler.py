@@ -1,4 +1,36 @@
-"""Show how increasing terminal speed makes the channel change faster."""
+"""Example 05: Show how terminal speed changes a time-varying channel.
+
+WHERE ARE WE IN THE COMMUNICATION SYSTEM?
+-----------------------------------------
+
+Tx antenna -> [time-varying wireless channel H(t, tau)] -> Rx antenna
+
+This example remains inside channel generation. It does not run a receiver.
+
+QUESTION
+--------
+
+Why does increasing terminal velocity make the complex channel fade faster?
+
+INPUT -> OUTPUT
+---------------
+
+The same sampled CDL-B rays + velocities 0, 30, and 120 km/h
+    -> one composite channel-magnitude trace for each speed
+
+METHOD
+------
+
+The random channel state is sampled once and reused. Only velocity changes, so
+the plot isolates the Doppler term instead of comparing unrelated channels.
+
+IMPORTANT SIMPLIFICATION
+------------------------
+
+The example uses one Tx port and one Rx port, then sums all delayed paths into a
+narrowband trace. It is a Doppler/coherence-time demonstration, not a complete
+OFDM or receiver simulation.
+"""
 
 from __future__ import annotations
 
@@ -42,7 +74,7 @@ def main() -> None:
             random_state=state,
             backend=backend,
         )
-        # Sum paths to observe the composite narrowband channel.
+        # Sum paths to observe one composite narrowband channel trace.
         trace = backend.to_numpy(result.coefficients[0, 0, 0].sum(axis=0))
         ax.plot(time_ms, 20.0 * np.log10(np.abs(trace) + 1e-12), label=f"{speed_kmh:g} km/h")
     ax.set_xlabel("Time [ms]")
