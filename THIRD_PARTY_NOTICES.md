@@ -1,6 +1,6 @@
 # Third-party notices
 
-The profile data in `src/sionna_tutorial/data/models/` is derived from the
+The profile data in `src/sionna_tutorial/data/models/models.json.gz` is derived from the
 Apache-2.0-licensed NVIDIA Sionna project and mirrors the TDL/CDL parameter
 files that Sionna attributes to 3GPP TR 38.901.
 

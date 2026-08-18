@@ -44,7 +44,7 @@ Repository = "https://github.com/ThreeMonth03/sionna_tutorial"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"sionna_tutorial.data.models" = ["*.json"]
+"sionna_tutorial.data.models" = ["*.json.gz"]
 
 [tool.ruff]
 target-version = "py311"
