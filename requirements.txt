@@ -1,7 +1,7 @@
 # Complete local environment for this tutorial.
 #
 # Assumptions:
-# - Python 3.11, 3.12, 3.13, or 3.14
+# - Python 3.11, 3.12, or 3.13
 # - NVIDIA GPU and a compatible NVIDIA driver
 # - CUDA 12 Python components are installed by the CuPy [ctk] extra, so a
 #   system-wide CUDA Toolkit is not required.
