@@ -1,4 +1,37 @@
-"""Build one path coefficient from array phase and Doppler by hand."""
+"""Example 01: Build one propagation-ray coefficient by hand.
+
+WHERE ARE WE IN THE COMMUNICATION SYSTEM?
+-----------------------------------------
+
+PHY transmitter -> Tx antenna -> [one ray in the wireless channel] -> Rx side
+
+This example is inside the propagation channel. It does not transmit bits or
+run a receiver.
+
+QUESTION
+--------
+
+Why does one plane wave have a different complex phase at every antenna, and
+why does motion rotate that phase over time?
+
+INPUT -> OUTPUT
+---------------
+
+Tx array positions + ray direction + wavelength + velocity + sampled time
+    -> complex coefficient [tx_antenna, time]
+
+WHAT TO READ
+------------
+
+`unit_sphere_vector()`, `spatial_phase()`, and `doppler_phase()` in
+`src/sionna_tutorial/geometry.py`.
+
+NOT MODELED
+-----------
+
+No multipath, delay spread, receive array, transmitted data, noise, channel
+estimation, equalizer, coding, or protocol layer.
+"""
 
 from __future__ import annotations
 
