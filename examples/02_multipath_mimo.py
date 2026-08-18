@@ -1,4 +1,37 @@
-"""Inspect one MIMO channel matrix formed by many CDL rays."""
+"""Example 02: Inspect one MIMO matrix formed by many propagation rays.
+
+WHERE ARE WE IN THE COMMUNICATION SYSTEM?
+-----------------------------------------
+
+Tx antenna array -> [multipath spatial channel] -> Rx antenna array
+
+This example explains the physical origin of the matrix H in y = Hx + n.
+
+QUESTION
+--------
+
+How do ray angles, antenna positions, polarization, and complex phase produce a
+different coefficient for every Tx-Rx antenna pair?
+
+INPUT -> OUTPUT
+---------------
+
+CDL-A profile + 8 Tx ports + 4 Rx ports + one random realization
+    -> H [rx=4, tx=8] after delayed paths are summed for visualization
+
+IMPORTANT SIMPLIFICATION
+------------------------
+
+The code sums all delayed paths into one matrix only to draw a heatmap. A
+frequency-selective OFDM receiver normally preserves delay or uses one H[k] per
+subcarrier.
+
+NOT MODELED
+-----------
+
+No transmitted bits, OFDM waveform, noise, channel estimation, equalization,
+coding, or protocol layer.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +71,7 @@ def main() -> None:
     axes[0].set_ylabel("Rx antenna")
     fig.colorbar(magnitude, ax=axes[0])
     phase = axes[1].imshow(np.angle(matrix), aspect="auto", vmin=-np.pi, vmax=np.pi)
-    axes[1].set_title("∠H [rad]")
+    axes[1].set_title("angle(H) [rad]")
     axes[1].set_xlabel("Tx antenna")
     axes[1].set_ylabel("Rx antenna")
     fig.colorbar(phase, ax=axes[1])

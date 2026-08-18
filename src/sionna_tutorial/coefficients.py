@@ -1,10 +1,36 @@
-"""Readable deterministic CDL channel-coefficient computation.
+"""Deterministic construction of the small-scale CDL propagation channel.
 
-The implementation follows the structure of TR 38.901 Eq. 7.5-28: antenna
-field vectors, a 2x2 polarization matrix, array-position phases, an initial
-random phase, and a time-varying Doppler phase. It intentionally omits global
-coordinate-system rotations and path loss; those belong to a larger scenario
-model rather than this small-scale channel tutorial.
+SYSTEM LOCATION
+---------------
+
+Tx antenna array -> [THIS MODULE: wireless propagation h(t, tau)] -> Rx array
+
+The module does not process information bits and does not implement a receiver.
+It converts a standardized profile plus sampled physical rays into
+
+```text
+coefficients [batch, rx_antenna, tx_antenna, delayed_path, time].
+```
+
+METHOD
+------
+
+For every ray, the implementation follows the structure of TR 38.901 Eq.
+7.5-28 and combines:
+
+```text
+receive element field
+x 2x2 polarization coupling
+x transmit element field
+x receive array-position phase
+x transmit array-position phase
+x Doppler time phase
+x ray amplitude
+```
+
+Twenty rays are summed to form one delayed MIMO path/cluster. The code omits
+global coordinate-system rotations and path loss; those belong to a larger
+scenario model rather than this small-scale channel tutorial.
 """
 
 from __future__ import annotations
@@ -26,10 +52,13 @@ MovingEnd = Literal["tx", "rx"]
 
 @dataclass(frozen=True)
 class ChannelCoefficients:
-    """Path coefficients and delays.
+    """Sparse MIMO channel impulse response and path delays.
 
-    ``coefficients`` has shape ``[batch, rx_ant, tx_ant, path, time]``.
-    ``delays_s`` has shape ``[path]``.
+    `coefficients` has shape `[batch, rx_ant, tx_ant, path, time]`.
+    `delays_s` has shape `[path]`.
+
+    This is the generated channel itself. Applying it to transmitted data and
+    estimating it at a receiver are later, separate operations.
     """
 
     coefficients: object
@@ -37,6 +66,8 @@ class ChannelCoefficients:
 
 
 def _polarization_matrix(phases: object, xpr_linear: float, *, xp: object, cdtype: object) -> object:
+    """Build one 2x2 Jones/polarization matrix for every sampled ray."""
+
     co_theta = xp.exp(1j * phases[..., 0])
     cross_theta_phi = xp.exp(1j * phases[..., 1]) / xp.sqrt(xpr_linear)
     cross_phi_theta = xp.exp(1j * phases[..., 2]) / xp.sqrt(xpr_linear)
@@ -47,6 +78,8 @@ def _polarization_matrix(phases: object, xpr_linear: float, *, xp: object, cdtyp
 
 
 def _normalize_velocity(velocity_mps: np.ndarray, batch_size: int) -> np.ndarray:
+    """Convert one shared velocity or one velocity per batch into `[batch, 3]`."""
+
     velocity = np.asarray(velocity_mps, dtype=np.float64)
     if velocity.shape == (3,):
         return np.broadcast_to(velocity, (batch_size, 3)).copy()
@@ -70,9 +103,18 @@ def _cluster_coefficients(
     complex_dtype: object,
     moving_end: MovingEnd,
 ) -> object:
+    """Sum 20 rays into one delayed MIMO path for one CDL cluster.
+
+    Returns `[batch, rx_antenna, tx_antenna, time]`.
+    """
+
     xp = backend.xp
     angles = random_state.angles
 
+    # ------------------------------------------------------------------
+    # Step 1: select this cluster's per-ray random physical state.
+    # Every angle tensor below has shape [batch, ray].
+    # ------------------------------------------------------------------
     aod = backend.asarray(angles.aod_rad[:, cluster_index], dtype=real_dtype)
     aoa = backend.asarray(angles.aoa_rad[:, cluster_index], dtype=real_dtype)
     zod = backend.asarray(angles.zod_rad[:, cluster_index], dtype=real_dtype)
@@ -82,9 +124,18 @@ def _cluster_coefficients(
         dtype=real_dtype,
     )
 
+    # ------------------------------------------------------------------
+    # Step 2: convert departure/arrival angles into 3D propagation vectors.
+    # Shape: [batch, ray, 3].
+    # ------------------------------------------------------------------
     tx_direction = unit_sphere_vector(zod, aod, xp=xp)
     rx_direction = unit_sphere_vector(zoa, aoa, xp=xp)
 
+    # ------------------------------------------------------------------
+    # Step 3: evaluate Tx/Rx antenna element fields and polarization.
+    # tx_field: [batch, ray, tx_port, polarization_component]
+    # rx_field: [batch, ray, rx_port, polarization_component]
+    # ------------------------------------------------------------------
     tx_field = element_field_components(
         zod,
         aod,
@@ -106,6 +157,9 @@ def _cluster_coefficients(
         xp=xp,
         cdtype=complex_dtype,
     )
+
+    # Contract F_rx^T P F_tx for every ray and antenna pair.
+    # field_coupling: [batch, ray, rx_port, tx_port].
     field_coupling = xp.einsum(
         "brui,brij,brvj->bruv",
         rx_field,
@@ -114,6 +168,10 @@ def _cluster_coefficients(
         optimize=True,
     )
 
+    # ------------------------------------------------------------------
+    # Step 4: convert physical antenna positions into complex spatial phase.
+    # A plane wave reaches different array elements at different phases.
+    # ------------------------------------------------------------------
     rx_spatial = spatial_phase(
         rx_array.positions_m,
         rx_direction,
@@ -130,6 +188,10 @@ def _cluster_coefficients(
     )
     spatial = rx_spatial[..., :, None] * tx_spatial[..., None, :]
 
+    # ------------------------------------------------------------------
+    # Step 5: generate each ray's time evolution from mobility/Doppler.
+    # time_phase: [batch, ray, time].
+    # ------------------------------------------------------------------
     moving_direction = rx_direction if moving_end == "rx" else tx_direction
     time_phase = doppler_phase(
         moving_direction,
@@ -140,6 +202,10 @@ def _cluster_coefficients(
         complex_dtype=complex_dtype,
     )
 
+    # ------------------------------------------------------------------
+    # Step 6: multiply all per-ray factors and sum the 20-ray axis.
+    # `bruv,brt->buvt` removes `r` and returns one delayed MIMO path.
+    # ------------------------------------------------------------------
     ray_amplitude = xp.sqrt(profile.powers_linear[cluster_index] / RAYS_PER_CLUSTER)
     return ray_amplitude * xp.einsum(
         "bruv,brt->buvt",
@@ -162,6 +228,8 @@ def _los_coefficient(
     complex_dtype: object,
     moving_end: MovingEnd,
 ) -> object:
+    """Generate the deterministic specular LOS MIMO component for CDL-D/E."""
+
     if profile.los_angles_rad is None:
         raise ValueError("LOS coefficient requested for a non-LOS profile")
 
@@ -190,7 +258,11 @@ def _los_coefficient(
         xp=xp,
     ).astype(complex_dtype, copy=False)
 
-    los_pol = xp.asarray([[1.0 + 0j, 0.0 + 0j], [0.0 + 0j, -1.0 + 0j]], dtype=complex_dtype)
+    # The specular path uses the deterministic LOS polarization matrix.
+    los_pol = xp.asarray(
+        [[1.0 + 0j, 0.0 + 0j], [0.0 + 0j, -1.0 + 0j]],
+        dtype=complex_dtype,
+    )
     field_coupling = xp.einsum(
         "brui,ij,brvj->bruv",
         rx_field,
@@ -244,7 +316,7 @@ def generate_cdl_coefficients(
     backend: Backend,
     precision: Literal["single", "double"] = "single",
 ) -> ChannelCoefficients:
-    """Generate a batch of CDL channel impulse responses."""
+    """Generate a batch of CDL channel impulse responses `h(t, tau)`."""
 
     if carrier_frequency_hz <= 0 or sampling_frequency_hz <= 0:
         raise ValueError("frequencies must be positive")
@@ -258,6 +330,7 @@ def generate_cdl_coefficients(
     if random_state.polarization_phases_rad.shape != expected:
         raise ValueError(f"polarization phases must have shape {expected}")
 
+    # Choose floating/complex precision in the active NumPy or CuPy namespace.
     xp = backend.xp
     if precision == "single":
         real_dtype, complex_dtype = xp.float32, xp.complex64
@@ -266,10 +339,16 @@ def generate_cdl_coefficients(
     else:
         raise ValueError("precision must be 'single' or 'double'")
 
-    velocity = backend.asarray(_normalize_velocity(np.asarray(velocity_mps), batch_size), dtype=real_dtype)
+    # Shared simulation quantities used by every cluster.
+    velocity = backend.asarray(
+        _normalize_velocity(np.asarray(velocity_mps), batch_size),
+        dtype=real_dtype,
+    )
     sample_times = xp.arange(num_time_steps, dtype=real_dtype) / sampling_frequency_hz
     wavelength = SPEED_OF_LIGHT / carrier_frequency_hz
 
+    # Final sparse CIR tensor. The path axis remains explicit so delay is not
+    # destroyed before a later convolution or CIR-to-CFR transformation.
     output = xp.empty(
         (
             batch_size,
@@ -280,6 +359,9 @@ def generate_cdl_coefficients(
         ),
         dtype=complex_dtype,
     )
+
+    # Generate one delayed MIMO path at a time. This keeps the formula visible
+    # and avoids materializing batch x cluster x ray x rx x tx x time at once.
     for cluster in range(profile.num_clusters):
         output[:, :, :, cluster, :] = _cluster_coefficients(
             cluster_index=cluster,
@@ -296,6 +378,8 @@ def generate_cdl_coefficients(
             moving_end=moving_end,
         )
 
+    # CDL-D/E combine diffuse power and a deterministic specular component
+    # according to the profile's Rician K-factor.
     if profile.has_los:
         k = profile.k_factor_linear
         output *= xp.sqrt(1.0 / (k + 1.0))

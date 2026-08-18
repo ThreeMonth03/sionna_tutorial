@@ -1,4 +1,38 @@
-"""Visualize the power-delay profile and one CDL MIMO realization."""
+"""Example 04: Generate and visualize one 3GPP CDL MIMO channel realization.
+
+WHERE ARE WE IN THE COMMUNICATION SYSTEM?
+-----------------------------------------
+
+Tx antenna array -> [3GPP clustered wireless channel] -> Rx antenna array
+
+This is the main channel-generation example. Examples 01-03 introduce the
+spatial phase, MIMO, and delay concepts that are combined here.
+
+QUESTION
+--------
+
+How do cluster delay/power, 20 rays, four angular dimensions, antenna fields,
+polarization, array geometry, random phase, and Doppler form H(t, tau)?
+
+INPUT -> OUTPUT
+---------------
+
+CDL model + delay spread + carrier + Tx/Rx arrays + random state
+    -> coefficients [batch=1, rx, tx, path, time=1]
+    -> delays [path]
+
+WHAT THE FIGURE SHOWS
+---------------------
+
+Left: realized power carried by every delayed CDL path.
+Right: instantaneous MIMO magnitude after paths are summed for visualization.
+
+NOT MODELED
+-----------
+
+No geographical UMi/UMa/RMa scenario, path loss, RF circuit, transmitted data,
+pilot, channel estimation, detector, coding, or protocol layer.
+"""
 
 from __future__ import annotations
 

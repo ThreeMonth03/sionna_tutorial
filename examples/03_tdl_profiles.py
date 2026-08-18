@@ -1,4 +1,36 @@
-"""Plot the standardized TDL A-E power-delay profiles."""
+"""Example 03: Plot the standardized TDL A-E power-delay profiles.
+
+WHERE ARE WE IN THE COMMUNICATION SYSTEM?
+-----------------------------------------
+
+Tx antenna -> [wireless channel with delayed echoes] -> Rx antenna
+
+This example studies the delay domain of the propagation channel.
+
+QUESTION
+--------
+
+Why does a wireless signal arrive through multiple delayed copies, and how do
+the standardized TDL models assign average power to those delays?
+
+INPUT -> OUTPUT
+---------------
+
+TDL-A/B/C/D/E profile tables + 100 ns RMS delay spread
+    -> five power-delay plots
+
+IMPORTANT CLARIFICATION
+-----------------------
+
+This file mostly loads and plots standardized tables. It does not generate a
+large Monte Carlo workload and is not intended to benchmark performance.
+
+NOT MODELED
+-----------
+
+No MIMO ray angles, antenna array, transmitted data, noise, receiver, coding,
+or protocol layer.
+"""
 
 from __future__ import annotations
 
