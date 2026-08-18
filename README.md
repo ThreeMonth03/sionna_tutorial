@@ -127,9 +127,9 @@ Examples 01-05 focus on this.
 
 Apply a known channel to transmitted symbols:
 
-\[
+$$
 \mathbf{y}[k]=\mathbf{H}[k]\mathbf{x}[k]+\mathbf{n}[k].
-\]
+$$
 
 Example 06 does this in the frequency domain.
 
