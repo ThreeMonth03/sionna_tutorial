@@ -10,12 +10,12 @@ complete 5G NR modem. Its main subject is one block in the middle:
 
 The main output is the time-varying multipath MIMO channel
 
-$$
-h_{u,s}(t,\tau),
-$$
+```math
+h_{u,s}(t,\tau).
+```
 
-where `s` identifies a transmit antenna port, `u` identifies a receive antenna
-port, `t` is time, and `tau` is propagation delay.
+Here, $s$ identifies a transmit antenna port, $u$ identifies a receive antenna
+port, $t$ is time, and $\tau$ is propagation delay.
 
 ## The complete end-to-end map
 
@@ -46,14 +46,14 @@ DAC / RF upconversion / power amplifier
 Transmit antenna array
     |
     v
-========================================================================= 
+=========================================================================
                  WIRELESS PROPAGATION CHANNEL
 
      multipath, delay, path power, AoD/AoA, ZoD/ZoA,
      antenna-array phase, polarization, mobility, Doppler
 
                     THIS REPOSITORY'S CORE
-========================================================================= 
+=========================================================================
     |
     v
 Receive antenna array
@@ -121,71 +121,73 @@ This is what Examples 01-05 primarily study.
 
 ### 2. Channel application
 
-Take transmitted data `x` and pass it through a known channel `H`:
+Take transmitted data $\mathbf{x}$ and pass it through a known channel
+$\mathbf{H}$:
 
-$$
-y = Hx + n.
-$$
+```math
+\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}.
+```
 
 For a frequency-selective time-domain channel, the more general expression is
 
-$$
+```math
 y_u(t)
 =
 \sum_s\int h_{u,s}(t,\tau)x_s(t-\tau)\,d\tau+n_u(t).
-$$
+```
 
 Example 06 performs a simplified frequency-domain channel application on OFDM
 subcarriers.
 
 ### 3. Channel estimation
 
-A real receiver does not know the true `H`. It transmits known pilots, observes
-how they were distorted, and estimates
+A real receiver does not know the true $\mathbf{H}$. It transmits known pilots,
+observes how they were distorted, and estimates
 
-$$
-\widehat{H}.
-$$
+```math
+\widehat{\mathbf{H}}.
+```
 
 Only then can the receiver equalize or detect the unknown data. This repository
 does not yet implement channel estimation. Example 06 directly gives the true
-simulated `H` to the equalizer; this idealization is called **perfect CSI**.
+simulated $\mathbf{H}$ to the equalizer; this idealization is called
+**perfect CSI**.
 
 ## The main mathematical object
 
 The channel generator returns a sparse channel impulse response:
 
-$$
+```math
 h_{u,s}(t,\tau)
 =
 \sum_n h_{u,s,n}(t)\,\delta(\tau-\tau_n).
-$$
+```
 
 Interpretation:
 
-- `n` selects a delayed propagation cluster/path,
-- `tau_n` is when that path arrives,
-- `h_{u,s,n}(t)` is its complex gain between Tx port `s` and Rx port `u`,
+- $n$ selects a delayed propagation cluster/path,
+- $\tau_n$ is when that path arrives,
+- $h_{u,s,n}(t)$ is its complex gain between Tx port $s$ and Rx port $u$,
 - magnitude describes attenuation,
 - phase describes propagation and antenna-array phase,
 - time variation describes Doppler fading.
 
 For OFDM, the delayed paths are converted into one matrix per subcarrier:
 
-$$
+```math
 H_{u,s}[k,t]
 =
 \sum_n h_{u,s,n}(t)e^{-j2\pi f_k\tau_n}.
-$$
+```
 
 Then the familiar narrowband MIMO equation is applied independently on each
 subcarrier:
 
-$$
+```math
 \mathbf{y}[k]
 =
 \mathbf{H}[k]\mathbf{x}[k]+\mathbf{n}[k].
-$$
+```
 
 ## TDL and CDL in the system map
 
@@ -286,8 +288,8 @@ Example 06: put H inside a tiny frequency-domain link
 ```
 
 Examples 01-03 are prerequisites. Example 04 is the main channel-generation
-example. Example 05 studies time variation. Example 06 is the first, deliberately
-small step from channel modeling toward a complete PHY link.
+example. Example 05 studies time variation. Example 06 is the first,
+deliberately small step from channel modeling toward a complete PHY link.
 
 ## What a complete 5G link would add next
 
