@@ -1,0 +1,315 @@
+"""Readable deterministic CDL channel-coefficient computation.
+
+The implementation follows the structure of TR 38.901 Eq. 7.5-28: antenna
+field vectors, a 2x2 polarization matrix, array-position phases, an initial
+random phase, and a time-varying Doppler phase. It intentionally omits global
+coordinate-system rotations and path loss; those belong to a larger scenario
+model rather than this small-scale channel tutorial.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+import numpy as np
+
+from .arrays import AntennaArray, element_field_components
+from .backend import Backend
+from .constants import RAYS_PER_CLUSTER, SPEED_OF_LIGHT
+from .geometry import doppler_phase, spatial_phase, unit_sphere_vector
+from .profiles import CDLProfile
+from .rays import CDLRandomState
+
+MovingEnd = Literal["tx", "rx"]
+
+
+@dataclass(frozen=True)
+class ChannelCoefficients:
+    """Path coefficients and delays.
+
+    ``coefficients`` has shape ``[batch, rx_ant, tx_ant, path, time]``.
+    ``delays_s`` has shape ``[path]``.
+    """
+
+    coefficients: object
+    delays_s: np.ndarray
+
+
+def _polarization_matrix(phases: object, xpr_linear: float, *, xp: object, cdtype: object) -> object:
+    co_theta = xp.exp(1j * phases[..., 0])
+    cross_theta_phi = xp.exp(1j * phases[..., 1]) / xp.sqrt(xpr_linear)
+    cross_phi_theta = xp.exp(1j * phases[..., 2]) / xp.sqrt(xpr_linear)
+    co_phi = xp.exp(1j * phases[..., 3])
+    row_theta = xp.stack([co_theta, cross_theta_phi], axis=-1)
+    row_phi = xp.stack([cross_phi_theta, co_phi], axis=-1)
+    return xp.stack([row_theta, row_phi], axis=-2).astype(cdtype, copy=False)
+
+
+def _normalize_velocity(velocity_mps: np.ndarray, batch_size: int) -> np.ndarray:
+    velocity = np.asarray(velocity_mps, dtype=np.float64)
+    if velocity.shape == (3,):
+        return np.broadcast_to(velocity, (batch_size, 3)).copy()
+    if velocity.shape == (batch_size, 3):
+        return velocity
+    raise ValueError("velocity_mps must have shape [3] or [batch, 3]")
+
+
+def _cluster_coefficients(
+    *,
+    cluster_index: int,
+    profile: CDLProfile,
+    random_state: CDLRandomState,
+    tx_array: AntennaArray,
+    rx_array: AntennaArray,
+    velocity_mps: object,
+    sample_times_s: object,
+    wavelength_m: float,
+    backend: Backend,
+    real_dtype: object,
+    complex_dtype: object,
+    moving_end: MovingEnd,
+) -> object:
+    xp = backend.xp
+    angles = random_state.angles
+
+    aod = backend.asarray(angles.aod_rad[:, cluster_index], dtype=real_dtype)
+    aoa = backend.asarray(angles.aoa_rad[:, cluster_index], dtype=real_dtype)
+    zod = backend.asarray(angles.zod_rad[:, cluster_index], dtype=real_dtype)
+    zoa = backend.asarray(angles.zoa_rad[:, cluster_index], dtype=real_dtype)
+    phases = backend.asarray(
+        random_state.polarization_phases_rad[:, cluster_index],
+        dtype=real_dtype,
+    )
+
+    tx_direction = unit_sphere_vector(zod, aod, xp=xp)
+    rx_direction = unit_sphere_vector(zoa, aoa, xp=xp)
+
+    tx_field = element_field_components(
+        zod,
+        aod,
+        tx_array.slant_angles_rad,
+        pattern=tx_array.pattern,
+        xp=xp,
+    ).astype(complex_dtype, copy=False)
+    rx_field = element_field_components(
+        zoa,
+        aoa,
+        rx_array.slant_angles_rad,
+        pattern=rx_array.pattern,
+        xp=xp,
+    ).astype(complex_dtype, copy=False)
+
+    polarization = _polarization_matrix(
+        phases,
+        profile.xpr_linear,
+        xp=xp,
+        cdtype=complex_dtype,
+    )
+    field_coupling = xp.einsum(
+        "brui,brij,brvj->bruv",
+        rx_field,
+        polarization,
+        tx_field,
+        optimize=True,
+    )
+
+    rx_spatial = spatial_phase(
+        rx_array.positions_m,
+        rx_direction,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+    tx_spatial = spatial_phase(
+        tx_array.positions_m,
+        tx_direction,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+    spatial = rx_spatial[..., :, None] * tx_spatial[..., None, :]
+
+    moving_direction = rx_direction if moving_end == "rx" else tx_direction
+    time_phase = doppler_phase(
+        moving_direction,
+        velocity_mps,
+        sample_times_s,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+
+    ray_amplitude = xp.sqrt(profile.powers_linear[cluster_index] / RAYS_PER_CLUSTER)
+    return ray_amplitude * xp.einsum(
+        "bruv,brt->buvt",
+        field_coupling * spatial,
+        time_phase,
+        optimize=True,
+    )
+
+
+def _los_coefficient(
+    *,
+    profile: CDLProfile,
+    tx_array: AntennaArray,
+    rx_array: AntennaArray,
+    velocity_mps: object,
+    sample_times_s: object,
+    wavelength_m: float,
+    backend: Backend,
+    real_dtype: object,
+    complex_dtype: object,
+    moving_end: MovingEnd,
+) -> object:
+    if profile.los_angles_rad is None:
+        raise ValueError("LOS coefficient requested for a non-LOS profile")
+
+    xp = backend.xp
+    aod, aoa, zod, zoa = profile.los_angles_rad
+    batch_size = int(velocity_mps.shape[0])
+    aod_b = xp.full((batch_size, 1), aod, dtype=real_dtype)
+    aoa_b = xp.full((batch_size, 1), aoa, dtype=real_dtype)
+    zod_b = xp.full((batch_size, 1), zod, dtype=real_dtype)
+    zoa_b = xp.full((batch_size, 1), zoa, dtype=real_dtype)
+
+    tx_direction = unit_sphere_vector(zod_b, aod_b, xp=xp)
+    rx_direction = unit_sphere_vector(zoa_b, aoa_b, xp=xp)
+    tx_field = element_field_components(
+        zod_b,
+        aod_b,
+        tx_array.slant_angles_rad,
+        pattern=tx_array.pattern,
+        xp=xp,
+    ).astype(complex_dtype, copy=False)
+    rx_field = element_field_components(
+        zoa_b,
+        aoa_b,
+        rx_array.slant_angles_rad,
+        pattern=rx_array.pattern,
+        xp=xp,
+    ).astype(complex_dtype, copy=False)
+
+    los_pol = xp.asarray([[1.0 + 0j, 0.0 + 0j], [0.0 + 0j, -1.0 + 0j]], dtype=complex_dtype)
+    field_coupling = xp.einsum(
+        "brui,ij,brvj->bruv",
+        rx_field,
+        los_pol,
+        tx_field,
+        optimize=True,
+    )
+    rx_spatial = spatial_phase(
+        rx_array.positions_m,
+        rx_direction,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+    tx_spatial = spatial_phase(
+        tx_array.positions_m,
+        tx_direction,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+    spatial = rx_spatial[..., :, None] * tx_spatial[..., None, :]
+    moving_direction = rx_direction if moving_end == "rx" else tx_direction
+    time_phase = doppler_phase(
+        moving_direction,
+        velocity_mps,
+        sample_times_s,
+        wavelength_m,
+        xp=xp,
+        complex_dtype=complex_dtype,
+    )
+    return xp.einsum(
+        "bruv,brt->buvt",
+        field_coupling * spatial,
+        time_phase,
+        optimize=True,
+    )
+
+
+def generate_cdl_coefficients(
+    profile: CDLProfile,
+    random_state: CDLRandomState,
+    tx_array: AntennaArray,
+    rx_array: AntennaArray,
+    *,
+    carrier_frequency_hz: float,
+    velocity_mps: np.ndarray | tuple[float, float, float] = (0.0, 0.0, 0.0),
+    num_time_steps: int = 1,
+    sampling_frequency_hz: float = 1_000.0,
+    moving_end: MovingEnd = "rx",
+    backend: Backend,
+    precision: Literal["single", "double"] = "single",
+) -> ChannelCoefficients:
+    """Generate a batch of CDL channel impulse responses."""
+
+    if carrier_frequency_hz <= 0 or sampling_frequency_hz <= 0:
+        raise ValueError("frequencies must be positive")
+    if num_time_steps <= 0:
+        raise ValueError("num_time_steps must be positive")
+    if moving_end not in {"tx", "rx"}:
+        raise ValueError("moving_end must be 'tx' or 'rx'")
+
+    batch_size = random_state.polarization_phases_rad.shape[0]
+    expected = (batch_size, profile.num_clusters, RAYS_PER_CLUSTER, 4)
+    if random_state.polarization_phases_rad.shape != expected:
+        raise ValueError(f"polarization phases must have shape {expected}")
+
+    xp = backend.xp
+    if precision == "single":
+        real_dtype, complex_dtype = xp.float32, xp.complex64
+    elif precision == "double":
+        real_dtype, complex_dtype = xp.float64, xp.complex128
+    else:
+        raise ValueError("precision must be 'single' or 'double'")
+
+    velocity = backend.asarray(_normalize_velocity(np.asarray(velocity_mps), batch_size), dtype=real_dtype)
+    sample_times = xp.arange(num_time_steps, dtype=real_dtype) / sampling_frequency_hz
+    wavelength = SPEED_OF_LIGHT / carrier_frequency_hz
+
+    output = xp.empty(
+        (
+            batch_size,
+            rx_array.num_antennas,
+            tx_array.num_antennas,
+            profile.num_clusters,
+            num_time_steps,
+        ),
+        dtype=complex_dtype,
+    )
+    for cluster in range(profile.num_clusters):
+        output[:, :, :, cluster, :] = _cluster_coefficients(
+            cluster_index=cluster,
+            profile=profile,
+            random_state=random_state,
+            tx_array=tx_array,
+            rx_array=rx_array,
+            velocity_mps=velocity,
+            sample_times_s=sample_times,
+            wavelength_m=wavelength,
+            backend=backend,
+            real_dtype=real_dtype,
+            complex_dtype=complex_dtype,
+            moving_end=moving_end,
+        )
+
+    if profile.has_los:
+        k = profile.k_factor_linear
+        output *= xp.sqrt(1.0 / (k + 1.0))
+        output[:, :, :, 0, :] += xp.sqrt(k / (k + 1.0)) * _los_coefficient(
+            profile=profile,
+            tx_array=tx_array,
+            rx_array=rx_array,
+            velocity_mps=velocity,
+            sample_times_s=sample_times,
+            wavelength_m=wavelength,
+            backend=backend,
+            real_dtype=real_dtype,
+            complex_dtype=complex_dtype,
+            moving_end=moving_end,
+        )
+
+    return ChannelCoefficients(coefficients=output, delays_s=profile.delays_s.copy())
