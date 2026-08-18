@@ -1,0 +1,30 @@
+# Complete local environment for this tutorial.
+#
+# Assumptions:
+# - Python 3.11, 3.12, 3.13, or 3.14
+# - NVIDIA GPU and a compatible NVIDIA driver
+# - CUDA 12 Python components are installed by the CuPy [ctk] extra, so a
+#   system-wide CUDA Toolkit is not required.
+#
+# Install from the repository root with:
+#   python3 -m pip install --upgrade pip
+#   python3 -m pip install -r requirements.txt
+
+# Install this repository in editable mode so examples import the local source.
+-e .
+
+# Numerical runtime.
+numpy==2.4.6
+
+# CUDA 12 CuPy wheel plus CUDA runtime/component wheels. Install exactly one
+# CuPy distribution in an environment; do not also install `cupy` or another
+# `cupy-cuda*` package.
+cupy-cuda12x[ctk]==14.1.1
+
+# Plotting used by all tutorial visualizations.
+matplotlib==3.11.1
+
+# Tests and repository quality checks.
+pytest==9.1.1
+pytest-cov==7.1.0
+ruff==0.16.3
