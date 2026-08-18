@@ -211,11 +211,11 @@ not a claim of complete 3GPP conformance.
 
 Moves one step beyond channel generation.
 
-1. `cir_to_frequency_response()` converts delayed paths `h(t, tau)` into one
-   MIMO matrix `H[k,t]` per subcarrier.
+1. `cir_to_frequency_response()` converts delayed paths $h(t,\tau)$ into one
+   MIMO matrix $\mathbf{H}[k,t]$ per subcarrier.
 2. `run_perfect_csi_ofdm_demo()` generates uncoded QPSK symbols.
-3. It applies `Y[k] = H[k] X[k] + N[k]`.
-4. It gives the exact `H[k]` to a pseudo-inverse equalizer.
+3. It applies $\mathbf{Y}[k] = \mathbf{H}[k]\mathbf{X}[k] + \mathbf{N}[k]$.
+4. It gives the exact $\mathbf{H}[k]$ to a pseudo-inverse equalizer.
 5. It makes hard QPSK decisions and counts bit errors.
 
 **What the name does not imply**

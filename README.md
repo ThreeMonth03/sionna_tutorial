@@ -79,7 +79,7 @@ Read these documents before reading the implementation:
 ### Tiny application around the channel
 
 - uncoded QPSK symbols on frequency-domain OFDM subcarriers
-- `Y[k] = H[k] X[k] + N[k]`
+- $\mathbf{Y}[k] = \mathbf{H}[k]\mathbf{X}[k] + \mathbf{N}[k]$
 - perfect-CSI pseudo-inverse / zero-forcing equalization
 - hard decisions and a small BER result
 
@@ -127,18 +127,18 @@ Examples 01-05 focus on this.
 
 Apply a known channel to transmitted symbols:
 
-$$
+```math
 \mathbf{y}[k]=\mathbf{H}[k]\mathbf{x}[k]+\mathbf{n}[k].
-$$
+```
 
 Example 06 does this in the frequency domain.
 
 ### Channel estimation
 
-A real receiver does not know `H`. It observes pilots and estimates `H_hat`.
-This repository does not yet implement that step. Example 06 directly gives
-the exact simulated `H` to the equalizer; that idealization is called
-**perfect CSI**.
+A real receiver does not know $\mathbf{H}$. It observes pilots and estimates
+$\widehat{\mathbf{H}}$. This repository does not yet implement that step.
+Example 06 directly gives the exact simulated $\mathbf{H}$ to the equalizer;
+that idealization is called **perfect CSI**.
 
 ## Learning path: Examples 01-06
 
@@ -147,11 +147,11 @@ The examples are small teaching experiments, not performance stress tests.
 | Example | System question | Main output |
 |---|---|---|
 | `01_single_path.py` | How do antenna position and motion rotate one ray's complex phase? | phase versus time |
-| `02_multipath_mimo.py` | How do many rays create the matrix `H`? | MIMO magnitude/phase heatmap |
+| `02_multipath_mimo.py` | How do many rays create the matrix $\mathbf{H}$? | MIMO magnitude/phase heatmap |
 | `03_tdl_profiles.py` | What delayed echoes are defined by TDL-A-E? | power-delay profiles |
 | `04_cdl_channel.py` | How are clusters, rays, polarization, and arrays combined? | one CDL CIR realization |
-| `05_mobility_doppler.py` | Why does a faster terminal make `H(t)` vary faster? | fading traces at three speeds |
-| `06_ofdm_demo.py` | How does `H[k]` distort data and how does ideal ZF undo it? | constellations and BER |
+| `05_mobility_doppler.py` | Why does a faster terminal make $\mathbf{H}(t)$ vary faster? | fading traces at three speeds |
+| `06_ofdm_demo.py` | How does $\mathbf{H}[k]$ distort data and how does ideal ZF undo it? | constellations and BER |
 
 Detailed chapter notes are in
 [`docs/01_learning_path.md`](docs/01_learning_path.md).
