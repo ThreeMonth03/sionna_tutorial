@@ -46,15 +46,18 @@ hiding them behind a false claim of full conformance:
 Those boundaries are intentional: the repository focuses on the numerical
 meaning of a clustered MIMO channel.
 
-## Installation
+## Installation from a clean Python environment
 
-Python 3.11 or newer is required. Python 3.11/3.12 is the safest choice when
-combining this project with current scientific/GPU packages.
+The tested Python versions are 3.11, 3.12, and 3.13. The repository provides a
+pinned `requirements.txt` containing the project itself, NumPy, Matplotlib,
+CuPy for CUDA 12, and all test/lint tools. No preinstalled Python packages are
+assumed.
 
 ```bash
 git clone https://github.com/ThreeMonth03/sionna_tutorial.git
 cd sionna_tutorial
-python -m venv .venv
+
+python3 -m venv .venv
 
 # Linux/macOS
 source .venv/bin/activate
@@ -62,22 +65,27 @@ source .venv/bin/activate
 # Windows PowerShell
 # .venv\Scripts\Activate.ps1
 
-python -m pip install --upgrade pip
-python -m pip install -e ".[plot,dev]"
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
 ```
 
-### RTX 2060 / CUDA
+`requirements.txt` installs `cupy-cuda12x[ctk]`. The `[ctk]` extra installs the
+CUDA 12 runtime/component wheels into the Python environment, so only a
+compatible NVIDIA driver is required; a separately installed system CUDA
+Toolkit is not required. Do not install another `cupy` or `cupy-cuda*` package
+in the same environment.
 
-Install the CuPy wheel that matches the CUDA runtime supported by your NVIDIA
-driver. For a CUDA 12 setup:
+Verify that Python sees the GPU:
 
 ```bash
-python -m pip install cupy-cuda12x
-python - <<'PY'
-import cupy as cp
-print(cp.cuda.runtime.getDeviceCount())
-print(cp.cuda.runtime.getDeviceProperties(0)["name"])
-PY
+python3 -c "import cupy as cp; print('GPU count:', cp.cuda.runtime.getDeviceCount()); print('GPU:', cp.cuda.runtime.getDeviceProperties(0)['name'])"
+```
+
+Run the complete test suite, including the CUDA differential test when a GPU is
+available:
+
+```bash
+python3 -m pytest -q
 ```
 
 The RTX 2060 (Turing, compute capability 7.5) is sufficient for all examples.
@@ -89,12 +97,12 @@ is unavailable.
 Read and run them in numerical order:
 
 ```bash
-python examples/01_single_path.py
-python examples/02_multipath_mimo.py --backend numpy
-python examples/03_tdl_profiles.py
-python examples/04_cdl_channel.py --model C --backend auto
-python examples/05_mobility_doppler.py --backend auto
-python examples/06_ofdm_demo.py --backend auto --snr-db 20
+python3 examples/01_single_path.py
+python3 examples/02_multipath_mimo.py --backend numpy
+python3 examples/03_tdl_profiles.py
+python3 examples/04_cdl_channel.py --model C --backend auto
+python3 examples/05_mobility_doppler.py --backend auto
+python3 examples/06_ofdm_demo.py --backend auto --snr-db 20
 ```
 
 Figures are written to `artifacts/`.
@@ -165,14 +173,15 @@ readable.
 ## Validate and benchmark
 
 ```bash
-pytest -q
+python3 -m ruff check .
+python3 -m pytest -q
 
-python benchmarks/benchmark_cdl.py \
+python3 benchmarks/benchmark_cdl.py \
   --backend numpy \
   --batches 1 8 64 256 \
   --time-steps 8
 
-python benchmarks/benchmark_cdl.py \
+python3 benchmarks/benchmark_cdl.py \
   --backend cupy \
   --batches 1 8 64 256 \
   --time-steps 8
